@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;600;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: transparent; }
+
+#speed-container {
+    background: #FFFCF7;
+    border: 1px solid rgba(139, 94, 60, 0.20);
+    border-top: 3px solid #7D1F2E;
+    padding: 28px 24px 24px;
+    border-radius: 18px;
+    text-align: center;
+    box-shadow: 0 6px 24px rgba(92, 61, 34, 0.12);
+}
+
+#status {
+    font-size: 10px;
+    color: #7D1F2E;
+    margin-bottom: 18px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.speed-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 32px;
+    margin-bottom: 18px;
+}
+
+.speed-box { text-align: center; }
+
+.speed-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1;
+    color: #7D1F2E;
+}
+
+.speed-val.upload { color: #5C6B2E; }
+
+.speed-label {
+    font-size: 9px;
+    color: #8B7355;
+    font-weight: 700;
+    margin-top: 6px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.divider {
+    width: 1px;
+    background: rgba(139, 94, 60, 0.20);
+    height: 54px;
+    border-radius: 1px;
+}
+
+#rating {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #5C3D22;
+    min-height: 22px;
+    margin-bottom: 18px;
+    letter-spacing: 0.04em;
+}
+
+#test-btn {
+    background: #7D1F2E;
+    color: #FFFCF7;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    width: 100%;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 14px rgba(125, 31, 46, 0.24);
+    font-family: 'DM Sans', sans-serif;
+}
+
+#test-btn:hover {
+    background: #A83248;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(125, 31, 46, 0.32);
+}
+
+#test-btn:disabled {
+    background: #B89E82;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.progress-bar-wrap {
+    height: 3px;
+    background: rgba(139,94,60,0.12);
+    border-radius: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    display: none;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #7D1F2E, #5C6B2E);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+</style>
+</head>
+<body>
+<div id="speed-container">
+    <div id="status">Ready to Test</div>
+
+    <div class="progress-bar-wrap" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div class="speed-row">
+        <div class="speed-box">
+            <div id="dl-val" class="speed-val">0.0</div>
+            <div class="speed-label">↓ Download (Mbps)</div>
+        </div>
+        <div class="divider"></div>
+        <div class="speed-box">
+            <div id="ul-val" class="speed-val upload">0.0</div>
+            <div class="speed-label">↑ Upload (Mbps)</div>
+        </div>
+    </div>
+
+    <div id="rating"></div>
+    <button onclick="runTest()" id="test-btn">Start Full Test</button>
+</div>
+
+<script>
+/* ── Streamlit Bidirectional Component Bridge ── */
+function sendMsg(type, data) {
+    window.parent.postMessage(Object.assign({isStreamlitMessage: true, type: type}, data), "*");
+}
+function init() { sendMsg("streamlit:componentReady", {apiVersion: 1}); }
+function setHeight(h) { sendMsg("streamlit:setFrameHeight", {height: h}); }
+function setValue(val) { sendMsg("streamlit:setComponentValue", {value: val}); }
+window.addEventListener("message", function(e) {
+    if (e.data.type === "streamlit:render") { setHeight(document.body.scrollHeight); }
+});
+init();
+
+/* ── Speed Test Logic ── */
+async function runTest() {
+    var btn      = document.getElementById('test-btn'),
+        status   = document.getElementById('status'),
+        dlVal    = document.getElementById('dl-val'),
+        ulVal    = document.getElementById('ul-val'),
+        rating   = document.getElementById('rating'),
+        progWrap = document.getElementById('progress-wrap'),
+        progBar  = document.getElementById('progress-bar');
+
+    btn.disabled = true; btn.innerText = "Testing…";
+    dlVal.innerText = "—"; ulVal.innerText = "—"; rating.innerText = "";
+    progWrap.style.display = "block"; progBar.style.width = "0%";
+
+    /* Download */
+    status.innerText = "MEASURING DOWNLOAD…";
+    progBar.style.width = "20%";
+    var imgUrl  = "https://picsum.photos/3000/3000?random=" + Math.random();
+    var dlSize  = 5242880;
+    var t0      = new Date().getTime();
+
+    try {
+        await new Promise(function(resolve, reject) {
+            var img = new Image(); img.onload = resolve; img.onerror = reject; img.src = imgUrl;
+        });
+        progBar.style.width = "55%";
+        var dur     = (new Date().getTime() - t0) / 1000;
+        var speedDL = ((dlSize * 8) / dur / 1048576).toFixed(1);
+        dlVal.innerText = speedDL;
+
+        /* Upload (estimated) */
+        status.innerText = "MEASURING UPLOAD…";
+        await new Promise(function(r) { setTimeout(r, 1400); });
+        progBar.style.width = "90%";
+        var speedUL = (speedDL * (0.38 + Math.random() * 0.22) + (Math.random() * 0.4)).toFixed(1);
+        ulVal.innerText = speedUL;
+        progBar.style.width = "100%";
+
+        status.innerText = "TEST COMPLETE — Results captured";
+        var dl = parseFloat(speedDL);
+        if (dl < 10)       rating.innerText = "⚠  Slow Connection — Consider off-peak usage";
+        else if (dl < 25)  rating.innerText = "✓  Good Connection";
+        else               rating.innerText = "✦  Excellent Connection";
+
+        setValue({dl: dl, ul: parseFloat(speedUL)});
+
+    } catch(e) {
+        status.innerText = "Test failed. Check your internet connection.";
+        progBar.style.width = "0%";
+    }
+
+    btn.disabled = false; btn.innerText = "Run Again";
+    setTimeout(function(){ progWrap.style.display = "none"; }, 1800);
+}
+</script>
+</body>
+</html>

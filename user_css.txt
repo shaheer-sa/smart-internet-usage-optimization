@@ -1,0 +1,1 @@
+p, label, li, span, div, .stMarkdown, .stCaption, .stMetric, .stText {
